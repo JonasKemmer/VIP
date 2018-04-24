@@ -203,10 +203,12 @@ def nested_negfc_sampling(init, cube, angs, plsc, psf, fwhm, annulus_width=2,
         print('Theta [{},{}]'.format(init[1] - w[1], init[1] + w[1]))
         print('Flux [{},{}]'.format(init[2] - w[2], init[2] + w[2]))
         print('\nUsing {} active points'.format(npoints))
-
+        callback = nestle.print_progress
+    else:
+        callback = None
     res = nestle.sample(f, prior_transform, ndim=3, method=method,
                         npoints=npoints, rstate=rstate, dlogz=dlogz,
-                        decline_factor=decline_factor)
+                        decline_factor=decline_factor, callback=callback)
 
     # if verbose:  print; timing(start)
     if verbose:

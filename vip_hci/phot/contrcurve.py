@@ -104,7 +104,7 @@ def contrast_curve(cube, angle_list, psf_template, fwhm, pxscale, starphot,
         of contrast.
     verbose : {True, False, 0, 1, 2}, optional
         If True or 1 the function prints to stdout intermediate info and timing,
-        if set to 2 more output will be shown. 
+        if set to 2 more output will be shown.
     full_output : bool, optional
         If True returns intermediate arrays.
     save_plot: string
@@ -128,7 +128,7 @@ def contrast_curve(cube, angle_list, psf_template, fwhm, pxscale, starphot,
         Student parameter is True), the interpolated throughput, the distance in
         pixels, the noise and the sigma corrected (if Student is True).
 
-    If full_output is True then the function returns: 
+    If full_output is True then the function returns:
         datafr, cube_fc_all, frame_fc_all, frame_nofc and fc_map_all.
 
     frame_fc_all : array_like
@@ -338,7 +338,7 @@ def contrast_curve(cube, angle_list, psf_template, fwhm, pxscale, starphot,
         # Optionally, save the figure to a path
         if save_plot is not None:
             fig.savefig(save_plot, dpi=100)
-            
+
         if debug:
             fig2 = plt.figure(figsize=figsize, dpi=dpi)
             ax3 = fig2.add_subplot(111)
@@ -384,7 +384,7 @@ def contrast_curve(cube, angle_list, psf_template, fwhm, pxscale, starphot,
 
     if full_output:
         return datafr, frame_fc_all, frame_nofc, fc_map_all
-    else: 
+    else:
         return datafr
 
 
@@ -572,7 +572,7 @@ def throughput(cube, angle_list, psf_template, fwhm, pxscale, algo, nbranch=1,
                 fcy = []
                 fcx = []
                 for i in range(radvec.shape[0]):
-                    flux = fc_snr * noise[irad + i * fc_rad_sep]
+                    flux = fc_snr * np.nan_to_num(noise[irad + i * fc_rad_sep])
                     cube_fc = cube_inject_companions(cube_fc, psf_template,
                                                      parangles, flux, pxscale,
                                                      rad_dists=[radvec[i]],
