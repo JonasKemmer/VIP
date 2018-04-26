@@ -34,7 +34,7 @@ warnings.filterwarnings("ignore", category=DeprecationWarning)
 
 def lnprior(param, bounds):
     """ Define the prior log-function.
-    
+
     Parameters
     ----------
     param: tuple
@@ -42,14 +42,14 @@ def lnprior(param, bounds):
     bounds: list
         The bounds for each model parameter.
         Ex: bounds = [(10,20),(0,360),(0,5000)]
-    
+
     Returns
     -------
     out: float.
         0 if all the model parameters satisfy the prior conditions defined here.
         -np.inf if at least one model parameters is out of bounds.
     """
-    
+
     try:
         r, theta, flux = param
     except TypeError:
@@ -59,7 +59,7 @@ def lnprior(param, bounds):
         r_bounds, theta_bounds, flux_bounds = bounds
     except TypeError:
         print('bounds must be a list of tuple, {} given'.format(type(bounds)))
-        
+
     if r_bounds[0] <= r <= r_bounds[1] and \
        theta_bounds[0] <= theta <= theta_bounds[1] and \
        flux_bounds[0] <= flux <= flux_bounds[1]:
@@ -73,7 +73,7 @@ def lnlike(param, cube, angs, plsc, psf_norm, fwhm, annulus_width,
            svd_mode='lapack', scaling='temp-mean', fmerit='sum', imlib='opencv',
            interpolation='lanczos4', collapse='median', debug=False):
     """ Define the likelihood log-function.
-    
+
     Parameters
     ----------
     param: tuple
@@ -118,12 +118,12 @@ def lnlike(param, cube, angs, plsc, psf_norm, fwhm, annulus_width,
         merit (instead of a single final frame).
     debug: boolean
         If True, the cube is returned along with the likelihood log-function.
-        
+
     Returns
     -------
     out: float
         The log of the likelihood.
-        
+
     """
     # Create the cube with the negative fake companion injected
     cube_negfc = cube_inject_companions(cube, psf_norm, angs, flevel=-param[2],
@@ -132,7 +132,7 @@ def lnlike(param, cube, angs, plsc, psf_norm, fwhm, annulus_width,
                                         imlib=imlib,
                                         interpolation=interpolation,
                                         verbose=False)
-                                  
+
     # Perform PCA and extract the zone of interest
     values = get_values_optimize(cube_negfc, angs, ncomp, annulus_width*fwhm,
                                  aperture_radius*fwhm, initial_state[0],
@@ -140,7 +140,7 @@ def lnlike(param, cube, angs, plsc, psf_norm, fwhm, annulus_width,
                                  svd_mode=svd_mode, scaling=scaling,
                                  imlib=imlib, interpolation=interpolation,
                                  collapse=collapse)
-    
+
     # Function of merit
     if fmerit == 'sum':
         lnlikelihood = -0.5 * np.sum(np.abs(values))
@@ -149,7 +149,7 @@ def lnlike(param, cube, angs, plsc, psf_norm, fwhm, annulus_width,
         lnlikelihood = -np.std(np.abs(values))
     else:
         raise RuntimeError('fmerit choice not recognized.')
-    
+
     if debug:
         return lnlikelihood, cube_negfc
     else:
@@ -162,7 +162,7 @@ def lnprob(param,bounds, cube, angs, plsc, psf_norm, fwhm,
            interpolation='lanczos4', collapse='median', display=False):
     """ Define the probability log-function as the sum between the prior and
     likelihood log-funtions.
-    
+
     Parameters
     ----------
     param: tuple
@@ -210,21 +210,21 @@ def lnprob(param,bounds, cube, angs, plsc, psf_norm, fwhm,
         merit (instead of a single final frame).
     display: boolean
         If True, the cube is displayed with ds9.
-        
+
     Returns
     -------
     out: float
         The probability log-function.
-    
+
     """
     if initial_state is None:
         initial_state = param
-    
+
     lp = lnprior(param, bounds)
-    
+
     if np.isinf(lp):
-        return -np.inf       
-    
+        return -np.inf
+
     return lp + lnlike(param, cube, angs, plsc, psf_norm, fwhm,
                        annulus_width, ncomp, aperture_radius, initial_state,
                        cube_ref, svd_mode, scaling, fmerit, imlib,
@@ -234,13 +234,13 @@ def lnprob(param,bounds, cube, angs, plsc, psf_norm, fwhm,
 def gelman_rubin(x):
     """
     Determine the Gelman-Rubin \hat{R} statistical test between Markov chains.
-    
+
     Parameters
     ----------
     x: numpy.array
         The numpy.array on which the Gelman-Rubin test is applied. This array
         should contain at least 2 set of data, i.e. x.shape >= (2,).
-        
+
     Returns
     -------
     out: float
@@ -255,7 +255,7 @@ def gelman_rubin(x):
     1.0366629898991262
     >>> gelman_rubin(np.vstack((x1,x1)))
     0.99
-        
+
     """
     if np.shape(x) < (2,):
         msg = 'Gelman-Rubin diagnostic requires multiple chains of the same '
@@ -291,19 +291,19 @@ def gelman_rubin_from_chain(chain, burnin):
     test. In other words, two sub-sets are extracted from the chain (burnin
     parts are taken into account) and the Gelman-Rubin statistical test is
     performed.
-    
+
     Parameters
     ----------
     chain: numpy.array
         The MCMC chain with the shape walkers x steps x model_parameters
     burnin: float \in [0,1]
         The fraction of a walker which is discarded.
-        
+
     Returns
     -------
     out: float
         The Gelman-Rubin \hat{R}.
-        
+
     """
     dim = chain.shape[2]
     k = chain.shape[1]
@@ -332,7 +332,7 @@ def mcmc_negfc_sampling(cube, angs, psfn, ncomp, plsc, initial_state, fwhm=4,
     the position and the flux of the planet using the 'Negative Fake Companion'
     technique. The result of this procedure is a chain with the samples from the
     posterior distributions of each of the 3 parameters.
-    
+
     This technique can be summarized as follows:
     1) We inject a negative fake companion (one candidate) at a given position
     and characterized by a given flux, both close to the expected values.
@@ -345,7 +345,7 @@ def mcmc_negfc_sampling(cube, angs, psfn, ncomp, plsc, initial_state, fwhm=4,
     contained in the circular aperture.
     The steps 1) to 4) are looped. At each iteration, the candidate model
     parameters are defined by the emcee Affine Invariant algorithm.
-    
+
     Parameters
     ----------
     cube: numpy.array
@@ -424,18 +424,18 @@ def mcmc_negfc_sampling(cube, angs, psfn, ncomp, plsc, initial_state, fwhm=4,
         Verbosity level. 0 for no output and 2 for full information.
     save: bool, optional
         If True, the MCMC results are pickled.
-                    
+
     Returns
     -------
     out : numpy.array
         The MCMC chain.
-        
+
     Notes
     -----
     The parameter 'a' must be > 1. For more theoretical information concerning
     this parameter, see Goodman & Weare, 2010, Comm. App. Math. Comp. Sci.,
     5, 65, Eq. [9] p70.
-    
+
     The parameter 'rhat_threshold' can be a numpy.array with individual
     threshold value for each model parameter.
     """
@@ -446,10 +446,10 @@ def mcmc_negfc_sampling(cube, angs, psfn, ncomp, plsc, initial_state, fwhm=4,
 
     # If required, one create the output folder.
     if save:
-        
+
         if output_file is None:
             output_file = datetime.datetime.now().strftime("%Y%m%d_%H%M%S")
-            
+
         try:
             os.makedirs('results/'+output_file)
         except OSError as exc:
@@ -466,7 +466,7 @@ def mcmc_negfc_sampling(cube, angs, psfn, ncomp, plsc, initial_state, fwhm=4,
     if cube_ref is not None:
         if not isinstance(cube_ref, np.ndarray) or cube_ref.ndim != 3:
             raise ValueError('`cube_ref` must be a 3D numpy array')
-    
+
     # #########################################################################
     # Initialization of the variables
     # #########################################################################
@@ -476,7 +476,7 @@ def mcmc_negfc_sampling(cube, angs, psfn, ncomp, plsc, initial_state, fwhm=4,
     supp = niteration_supp
     maxgap = check_maxgap
     initial_state = np.array(initial_state)
-    
+
     if itermin > limit:
         itermin = 0
 
@@ -487,7 +487,10 @@ def mcmc_negfc_sampling(cube, angs, psfn, ncomp, plsc, initial_state, fwhm=4,
     rhat_count = 0
     chain = np.empty([nwalkers, 1, dim])
     isamples = np.empty(0)
-    pos = initial_state + np.random.normal(0, 1e-1, (nwalkers, 3))
+    #pos = initial_state + np.random.normal(0, 1e-1, (nwalkers, 3))
+    pos = np.array([initial_state[0]+np.random.normal(0,1e-01,(nwalkers)),
+                    initial_state[1]+np.random.normal(0,1e-01,(nwalkers)),
+                    initial_state[2]+np.random.normal(0,1e-04,(nwalkers))]).T
     nIterations = limit + supp
     rhat = np.zeros(dim)
     stop = np.inf
@@ -497,7 +500,7 @@ def mcmc_negfc_sampling(cube, angs, psfn, ncomp, plsc, initial_state, fwhm=4,
                    initial_state[0] + annulus_width/2.),  # radius
                   (initial_state[1] - 10, initial_state[1] + 10),   # angle
                   (0, 2 * initial_state[2])]   # flux
-    
+
     sampler = emcee.EnsembleSampler(nwalkers, dim, lnprob, a,
                                     args=([bounds, cube, angs, plsc, psfn,
                                            fwhm, annulus_width, ncomp,
@@ -513,7 +516,7 @@ def mcmc_negfc_sampling(cube, angs, psfn, ncomp, plsc, initial_state, fwhm=4,
     if verbosity == 2:
         print('\nStart of the MCMC run ...')
         print('Step  |  Duration/step (sec)  |  Remaining Estimated Time (sec)')
-                             
+
     for k, res in enumerate(sampler.sample(pos, iterations=nIterations,
                                            storechain=True)):
         elapsed = (datetime.datetime.now()-start).total_seconds()
@@ -524,7 +527,7 @@ def mcmc_negfc_sampling(cube, angs, psfn, ncomp, plsc, initial_state, fwhm=4,
                 q = 1
             print('{}\t\t{:.5f}\t\t\t{:.5f}'.format(k, elapsed * q,
                                                     elapsed * (limit-k-1) * q))
-            
+
         start = datetime.datetime.now()
 
         # ---------------------------------------------------------------------
@@ -546,12 +549,12 @@ def mcmc_negfc_sampling(cube, angs, psfn, ncomp, plsc, initial_state, fwhm=4,
         if k == criterion:
             if verbosity == 2:
                 print('\n   Gelman-Rubin statistic test in progress ...')
-            
+
             geom += 1
             lastcheck = k
             if display:
                 show_walk_plot(chain)
-                
+
             if save:
                 import pickle
                 fname = 'results/{f}/{f}_temp_k{k}'.format(f=output_file, k=k)
@@ -560,7 +563,7 @@ def mcmc_negfc_sampling(cube, angs, psfn, ncomp, plsc, initial_state, fwhm=4,
                          'AR': sampler.acceptance_fraction}
                 with open(fname, 'wb') as fileSave:
                     pickle.dump(data, fileSave)
-                
+
             # We only test the rhat if we have reached the min # of steps
             if (k+1) >= itermin and konvergence == np.inf:
                 thr0 = int(np.floor(burnin*k))
@@ -597,11 +600,11 @@ def mcmc_negfc_sampling(cube, angs, psfn, ncomp, plsc, initial_state, fwhm=4,
             if verbosity == 1 or verbosity == 2:
                 print('We break the loop because we have reached convergence')
             break
-      
+
     if k == nIterations-1:
         if verbosity == 1 or verbosity == 2:
             print("We have reached the limit # of steps without convergence")
-            
+
     # #########################################################################
     # Construction of the independent samples
     # #########################################################################
@@ -610,7 +613,7 @@ def mcmc_negfc_sampling(cube, angs, psfn, ncomp, plsc, initial_state, fwhm=4,
         idxzero = temp[0]
     else:
         idxzero = chain.shape[1]
-    
+
     idx = int(np.amin([np.floor(2e5/nwalkers), np.floor(0.1*idxzero)]))
     if idx == 0:
         isamples = chain[:, 0:idxzero, :]
@@ -622,35 +625,35 @@ def mcmc_negfc_sampling(cube, angs, psfn, ncomp, plsc, initial_state, fwhm=4,
         frame = inspect.currentframe()
         args, _, _, values = inspect.getargvalues(frame)
         input_parameters = {j: values[j] for j in args[1:]}
-        
+
         output = {'isamples': isamples,
                   'chain': chain_zero_truncated(chain),
                   'input_parameters': input_parameters,
                   'AR': sampler.acceptance_fraction,
                   'lnprobability': sampler.lnprobability}
-                  
+
         with open('results/'+output_file+'/MCMC_results', 'wb') as fileSave:
             pickle.dump(output, fileSave)
-        
+
         msg = "\nThe file MCMC_results has been stored in the folder {}"
         print(msg.format('results/'+output_file+'/'))
 
     if verbosity == 1 or verbosity == 2:
         timing(start_time)
-                                    
+
     return chain_zero_truncated(chain)
 
-                                    
+
 def chain_zero_truncated(chain):
     """
     Return the Markov chain with the dimension: walkers x steps* x parameters,
     where steps* is the last step before having 0 (not yet constructed chain).
-    
+
     Parameters
     ----------
     chain: numpy.array
         The MCMC chain.
-        
+
     Returns
     -------
     out: numpy.array
@@ -662,12 +665,12 @@ def chain_zero_truncated(chain):
     except:
         idxzero = chain.shape[1]
     return chain[:, 0:idxzero, :]
- 
-   
+
+
 def show_walk_plot(chain, save=False, **kwargs):
     """
     Display or save a figure showing the path of each walker during the MCMC run
-    
+
     Parameters
     ----------
     chain: numpy.array
@@ -678,12 +681,12 @@ def show_walk_plot(chain, save=False, **kwargs):
         If True, a pdf file is created.
     kwargs:
         Additional attributes are passed to the matplotlib plot method.
-                                                        
+
     Returns
     -------
     Display the figure or create a pdf file named walk_plot.pdf in the working
     directory.
-    
+
     """
     temp = np.where(chain[0, :, 0] == 0.0)[0]
     if len(temp) != 0:
@@ -711,7 +714,7 @@ def show_walk_plot(chain, save=False, **kwargs):
 def show_corner_plot(chain, burnin=0.5, save=False, **kwargs):
     """
     Display or save a figure showing the corner plot (pdfs + correlation plots)
-    
+
     Parameters
     ----------
     chain: numpy.array
@@ -722,19 +725,19 @@ def show_corner_plot(chain, burnin=0.5, save=False, **kwargs):
         The fraction of a walker we want to discard.
     save: boolean, default: False
         If True, a pdf file is created.
-     
+
      kwargs:
         Additional attributs are passed to the corner.corner() method.
-                    
+
     Returns
     -------
     Display the figure or create a pdf file named walk_plot.pdf in the working
     directory.
-        
+
     Raises
     ------
     ImportError
-    
+
     """
     try:
         temp = np.where(chain[0, :, 0] == 0.0)[0]
@@ -763,7 +766,7 @@ def confidence(isamples, cfd=68.27, bins=100, gaussian_fit=False, weights=None,
     """
     Determine the highly probable value for each model parameter, as well as
     the 1-sigma confidence interval.
-    
+
     Parameters
     ----------
     isamples: numpy.array
@@ -783,48 +786,48 @@ def confidence(isamples, cfd=68.27, bins=100, gaussian_fit=False, weights=None,
         repository.
     kwargs: optional
         Additional attributes are passed to the matplotlib hist() method.
-        
+
     Returns
     -------
     out: tuple
         A 2 elements tuple with the highly probable solution and the confidence
         interval.
-        
+
     """
 
     plsc = kwargs.pop('plsc', 0.001)
     title = kwargs.pop('title', None)
-        
+
     output_file = kwargs.pop('filename', 'confidence.txt')
-        
+
     try:
         l = isamples.shape[1]
     except:
         l = 1
-     
+
     confidenceInterval = {}
     val_max = {}
     pKey = ['r', 'theta', 'f']
-    
+
     if cfd == 100:
         cfd = 99.9
-        
+
     #########################################
     ##  Determine the confidence interval  ##
     #########################################
     if gaussian_fit:
         mu = np.zeros(3)
         sigma = np.zeros_like(mu)
-    
+
     if gaussian_fit:
         fig, ax = plt.subplots(2, 3, figsize=(12,8))
     else:
         fig, ax = plt.subplots(1, 3, figsize=(12,4))
-    
+
     for j in range(l):
         label_file = ['r', 'theta', 'flux']
         label = [r'$\Delta r$', r'$\Delta \theta$', r'$\Delta f$']
-        
+
         if gaussian_fit:
             n, bin_vertices, _ = ax[0][j].hist(isamples[:,j], bins=bins,
                                                weights=weights, histtype='step',
@@ -836,7 +839,7 @@ def confidence(isamples, cfd=68.27, bins=100, gaussian_fit=False, weights=None,
         bins_width = np.mean(np.diff(bin_vertices))
         surface_total = np.sum(np.ones_like(n)*bins_width * n)
         n_arg_sort = np.argsort(n)[::-1]
-        
+
         test = 0
         pourcentage = 0
         for k, jj in enumerate(n_arg_sort):
@@ -849,17 +852,17 @@ def confidence(isamples, cfd=68.27, bins=100, gaussian_fit=False, weights=None,
                 break
         n_arg_min = n_arg_sort[:k].min()
         n_arg_max = n_arg_sort[:k+1].max()
-        
+
         if n_arg_min == 0:
             n_arg_min += 1
         if n_arg_max == bins:
             n_arg_max -= 1
-        
+
         val_max[pKey[j]] = bin_vertices[n_arg_sort[0]]+bins_width/2.
         confidenceInterval[pKey[j]] = np.array([bin_vertices[n_arg_min-1],
                                                bin_vertices[n_arg_max+1]]
                                                - val_max[pKey[j]])
-                        
+
         arg = (isamples[:, j] >= bin_vertices[n_arg_min - 1]) * \
               (isamples[:, j] <= bin_vertices[n_arg_max + 1])
         if gaussian_fit:
@@ -952,10 +955,10 @@ def confidence(isamples, cfd=68.27, bins=100, gaussian_fit=False, weights=None,
                     text = '{}: \t\t\t{:.3f} \t-{:.3f} \t+{:.3f}'
                 else:
                     text = '{}: \t\t\t{:.3f} \t\t-{:.3f} \t\t+{:.3f}'
-                    
+
                 f.write(text.format(pKey[i], val_max[pKey[i]],
                                     confidenceMin, confidenceMax))
-            
+
             f.write(' ')
             f.write('Platescale = {} mas'.format(plsc*1000))
             f.write('r (mas): \t\t{:.2f} \t\t-{:.2f} \t\t+{:.2f}'.format(
