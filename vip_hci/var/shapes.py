@@ -20,7 +20,8 @@ __all__ = ['dist',
            'create_ringed_spider_mask',
            'matrix_scaling',
            'prepare_matrix',
-           'reshape_matrix']
+           'reshape_matrix',
+           'get_indices_annulus']
 
 import numpy as np
 from skimage.draw import polygon
@@ -30,8 +31,8 @@ from sklearn.preprocessing import scale
 
 def mask_circle(array, radius, fillwith=0, mode='in'):
     """ Masks the pixels inside/outside (depending on ``mode``) of a centered
-    circle from a frame or cube, replacing the values with the value of
-    ``fillwith``.
+    circle from a frame or (3d or 4d) cube, replacing the values with the value
+    of ``fillwith``.
 
     Parameters
     ----------
@@ -58,6 +59,11 @@ def mask_circle(array, radius, fillwith=0, mode='in'):
         cy, cx = frame_center(array)
     elif array.ndim == 3:
         cy, cx = frame_center(array[0])
+    elif array.ndim == 4:
+        cy, cx = frame_center(array[0][0])
+    else:
+        raise ValueError('`Array` must be a 2d, 3d or 4d np.ndarray')
+
     ind = circle(cy, cx, radius)
 
     if mode == 'in':
@@ -69,15 +75,17 @@ def mask_circle(array, radius, fillwith=0, mode='in'):
         if array.ndim == 2:
             array_masked[ind] = fillwith
         elif array.ndim == 3:
-            for i in range(array.shape[0]):
-                array_masked[i][ind] = fillwith
+            array_masked[:, ind[1], ind[0]] = fillwith
+        elif array.ndim == 4:
+            array_masked[:, :, ind[1], ind[0]] = fillwith
 
     elif mode == 'out':
         if array.ndim == 2:
             array_masked[ind] = array[ind]
         elif array.ndim == 3:
-            for i in range(array.shape[0]):
-                array_masked[i][ind] = array[i][ind]
+            array_masked[:, ind[1], ind[0]] = array[:, ind[1], ind[0]]
+        elif array.ndim == 4:
+            array_masked[:, :, ind[1], ind[0]] = array[:, :, ind[1], ind[0]]
 
     return array_masked
 
@@ -141,17 +149,33 @@ def create_ringed_spider_mask(im_shape, ann_out, ann_in=0, sp_width=10,
     return mask
 
 
-def dist(yc,xc,y1,x1):
+def dist(yc, xc, y1, x1):
     """ Returns the Euclidean distance between two points.
     """
     return np.sqrt((yc-y1)**2 + (xc-x1)**2)
 
 
 def frame_center(array, verbose=False):
-    """ Returns the coordinates y,x of an image center.
-    """   
-    cy = array.shape[0]/2 - 0.5
-    cx = array.shape[1]/2 - 0.5
+    """ Returns the coordinates y,x of the frame(s) center.
+
+    Parameters
+    ----------
+    array : array_like
+        2d or 3d array.
+    verbose : bool optional
+        If True the center coordinates are printed out.
+    """
+    if array.ndim == 2:
+        cy = array.shape[0]/2 - 0.5
+        cx = array.shape[1]/2 - 0.5
+    elif array.ndim == 3:
+        cy = array[0].shape[0] / 2 - 0.5
+        cx = array[0].shape[1] / 2 - 0.5
+    elif array.ndim == 4:
+        cy = array[0, 0].shape[0] / 2 - 0.5
+        cx = array[0, 0].shape[1] / 2 - 0.5
+    else:
+        raise ValueError('Input array is not a 2d, 3d or 4d array')
 
     if verbose:
         print('Center px coordinates at x,y = ({}, {})'.format(cy, cx))
@@ -332,7 +356,7 @@ def get_ellipse(array, a, b, PA, output_values=False, cy=None, cx=None,
         return array_masked
 
 
-def get_annulus_segments(array, inner_radius, width, nsegm=8, theta_init=0,
+def get_annulus_segments(array, inner_radius, width, nsegm=1, theta_init=0,
                          optim_scale_fact=1, output_values=False):
     """ Returns indices or values in segments of a centerered annulus from a
     2d ndarray.
@@ -348,11 +372,11 @@ def get_annulus_segments(array, inner_radius, width, nsegm=8, theta_init=0,
     nsegm : int
         Number of segments of annulus to be extracted.
     theta_init : int
-        Initial azimuth [degrees] of the first segment, counting from the postivie
-        y-axis clockwise.
+        Initial azimuth [degrees] of the first segment, counting from the
+        postivie y-axis clockwise.
     optim_scale_fact : float
-        Enlargen the width of the segments, which can then be used as
-        optimization segments (like LOCI).
+        To enlarge the width of the segments, which can then be used as
+        optimization segments (e.g. in LOCI).
     output_values : bool, optional
         If True returns the values of the pixels in the each quadrant instead
         of the indices.
@@ -407,7 +431,7 @@ def get_annulus_segments(array, inner_radius, width, nsegm=8, theta_init=0,
         return indices
 
 
-### TODO: remove this in VIP v1.0.0. Replaced with get_annulus_segments
+# TODO: remove this in VIP v1.0.0. Replaced with get_annulus_segments
 def get_annulus(array, inner_radius, width, output_values=False, 
                 output_indices=False):                                          
     """Returns a centerered annulus from a 2d ndarray. All the rest pixels are 
@@ -458,7 +482,7 @@ def get_annulus(array, inner_radius, width, output_values=False,
         return array_masked
 
 
-### TODO: VIP v1.0.0: make use of get_annulus_segments instead
+# TODO: VIP v1.0.0: make use of get_annulus_segments instead
 def get_annulus_cube(array, inner_radius, width, output_values=False):     
     """ Returns a centerered annulus from a 3d ndarray. All the rest pixels are 
     set to zeros. 
@@ -696,5 +720,41 @@ def reshape_matrix(array, y, x):
     """
     return array.reshape(array.shape[0], y, x)
 
-        
+
+def get_indices_annulus(shape, inrad, outrad, mask=None, maskrad=None,
+                        verbose=False):
+    """ mask is a list of tuples X,Y
+    # TODO: documentation
+    """
+    framemp = np.zeros(shape)
+    if mask is not None:
+        if not isinstance(mask, list):
+            raise TypeError('Mask should be a list of tuples')
+        if maskrad is None:
+            raise ValueError('Fwhm not given')
+        for xy in mask:
+            # patch_size/2 diameter aperture
+            cir = circle(xy[1], xy[0], maskrad, shape)
+            framemp[cir] = 1
+
+    annulus_width = outrad - inrad
+    cy, cx = frame_center(framemp)
+    yy, xx = np.mgrid[:framemp.shape[0], :framemp.shape[1]]
+    circ = np.sqrt((xx - cx)**2 + (yy - cy)**2)
+    donut_mask = (circ <= (inrad + annulus_width)) & (circ >= inrad)
+    y, x = np.where(donut_mask)
+    if mask is not None:
+        npix = y.shape[0]
+        ymask, xmask = np.where(framemp)    # masked pixels where == 1
+        inds = []
+        for i, tup in enumerate(zip(y, x)):
+            if tup in zip(ymask, xmask):
+                inds.append(i)
+        y = np.delete(y, inds)
+        x = np.delete(x, inds)
+
+    if verbose:
+        print(y.shape[0], 'pixels in annulus')
+    return y, x
+
 

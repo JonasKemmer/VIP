@@ -20,7 +20,6 @@ __all__ = ['frame_shift',
 import numpy as np
 import warnings
 import itertools as itt
-import pyprind
 
 try:
     import cv2
@@ -37,7 +36,7 @@ from skimage.feature import register_translation
 from multiprocessing import Pool, cpu_count
 from matplotlib import pyplot as plt
 from . import frame_crop
-from ..conf import time_ini, timing
+from ..conf import time_ini, timing, Progressbar
 from ..conf.utils_conf import vip_figsize
 from ..conf.utils_conf import eval_func_tuple as EFT
 from ..var import (get_square, frame_center, get_annulus, pp_subplots,
@@ -55,7 +54,7 @@ def frame_shift(array, shift_y, shift_x, imlib='opencv',
     array : array_like
         Input 2d array.
     shift_y, shift_x: float
-        Shifts in x and y directions.
+        Shifts in y and x directions.
     imlib : {'opencv', 'ndimage-fourier', 'ndimage-interp'}, string optional
         Library or method used for performing the image shift.
         'ndimage-fourier', does a fourier shift operation and preserves better
@@ -355,17 +354,14 @@ def cube_recenter_satspots(array, xy, subi_size=19, sigfactor=6, plot=True,
     array_rec = []
     
     if verbose:
-        msg = 'Looping through the frames, fitting the intersections:'
-        bar = pyprind.ProgBar(n_frames, stream=1, title=msg)
-    for i in range(n_frames):
+        print('Looping through the frames, fitting the intersections:')
+    for i in Progressbar(range(n_frames), verbose=verbose):
         res = frame_center_satspots(array[i], xy, debug=debug, shift=True,
                                     subi_size=subi_size, sigfactor=sigfactor,
                                     verbose=False)
         array_rec.append(res[0])
         shift_y[i] = res[1] 
         shift_x[i] = res[2]          
-        if verbose:
-            bar.update()
        
     if verbose:
         timing(start_time)
@@ -622,13 +618,11 @@ def cube_recenter_radon(array, full_output=False, verbose=True, imlib='opencv',
     y = np.zeros((n_frames))
     array_rec = array.copy()
     
-    bar = pyprind.ProgBar(n_frames, stream=1, title='Looping through frames')
-    for i in range(n_frames):
+    for i in Progressbar(range(n_frames), desc="frames", verbose=verbose):
         y[i], x[i] = frame_center_radon(array[i], verbose=False, plot=False, 
                                         **kwargs)
         array_rec[i] = frame_shift(array[i], y[i], x[i], imlib=imlib,
                                    interpolation=interpolation)
-        bar.update()
         
     if verbose:
         timing(start_time)
@@ -770,17 +764,12 @@ def cube_recenter_dft_upsampling(array, cy_1=None, cx_1=None, negative=False,
         y[0] = cy
     
     # Finding the shifts with DTF upsampling of each frame wrt the first
-    if verbose:
-        tit = "Looping through frames"
-        bar = pyprind.ProgBar(n_frames-1, stream=1, title=tit)
-    for i in range(1, n_frames):
+    for i in Progressbar(range(1, n_frames), desc="frames", verbose=verbose):
         shift_yx, _, _ = register_translation(array_rec[0], array[i],
                                               upsample_factor=upsample_factor)
         y[i], x[i] = shift_yx
         array_rec[i] = frame_shift(array[i], shift_y=y[i], shift_x=x[i],
                                    imlib=imlib, interpolation=interpolation)
-        if verbose:
-            bar.update()
 
     if debug:
         print("\nShifts in X and Y")
@@ -839,7 +828,7 @@ def cube_recenter_2dfit(array, xy=None, fwhm=4, subi_size=5, model='gauss',
         of an ifs cube, where the fwhm varies with wavelength)
     subi_size : int, optional
         Size of the square subimage sides in pixels.
-    mode : str, optional
+    model : str, optional
         Sets the type of fit to be used. 'gauss' for a 2d Gaussian fit and
         'moff' for a 2d Moffat fit.
     nproc : int or None, optional
@@ -850,9 +839,9 @@ def cube_recenter_2dfit(array, xy=None, fwhm=4, subi_size=5, model='gauss',
     interpolation : str, optional
         See the documentation of the ``vip_hci.preproc.frame_shift`` function.
     offset : tuple of floats, optional
-        If None the region of the frames used for the 2d Gaussian fit is shifted
-        to the center of the images (2d arrays). If a tuple is given it serves
-        as the offset of the fitted area wrt the center of the 2d arrays.
+        If None the region of the frames used for the 2d Gaussian/Moffat fit is
+        shifted to the center of the images (2d arrays). If a tuple is given it
+        serves as the offset of the fitted area wrt the center of the 2d arrays.
     negative : bool, optional
         If True a negative 2d Gaussian/Moffat fit is performed.
     threshold : bool, optional
@@ -933,14 +922,10 @@ def cube_recenter_2dfit(array, xy=None, fwhm=4, subi_size=5, model='gauss',
 
     if nproc == 1:
         res = []
-        if verbose:
-            tit = '2d Gauss-fitting, looping through frames'
-            bar = pyprind.ProgBar(n_frames, stream=1, title=tit)
-        for i in range(n_frames):
+        print('2d Gauss-fitting')
+        for i in Progressbar(range(n_frames), desc="frames", verbose=verbose):
             res.append(func(array, i, subi_size, pos_y, pos_x, negative, debug,
                             fwhm[i], threshold))
-            if verbose:
-                bar.update()
         res = np.array(res)
     elif nproc > 1:
         pool = Pool(processes=nproc)  
@@ -959,16 +944,12 @@ def cube_recenter_2dfit(array, xy=None, fwhm=4, subi_size=5, model='gauss',
         y -= offy
         x -= offx
     
-    if verbose:
-        bar2 = pyprind.ProgBar(n_frames, stream=1, title='Shifting the frames')
-    for i in range(n_frames):
+    for i in Progressbar(range(n_frames), desc="shifting", verbose=verbose):
         if debug:
             print("\nShifts in X and Y")
             print(x[i], y[i])
         array_recentered[i] = frame_shift(array[i], y[i], x[i], imlib=imlib,
                                           interpolation=interpolation)
-        if verbose:
-            bar2.update()
         
     if verbose:
         timing(start_time)
@@ -1041,7 +1022,7 @@ def cube_recenter_via_speckles(cube_sci, cube_ref=None, alignment_iter=5,
                                fwhm=4, debug=False, negative=True,
                                recenter_median=False, subframesize=20,
                                imlib='opencv', interpolation='bilinear',
-                               plot=True):
+                               save_shifts=False, plot=True):
     """ Registers frames based on the median speckle pattern. Optionally centers 
     based on the position of the vortex null in the median frame. Images are 
     filtered to isolate speckle spatial frequencies.
@@ -1076,6 +1057,8 @@ def cube_recenter_via_speckles(cube_sci, cube_ref=None, alignment_iter=5,
         Image processing library to use. 
     interpolation : str, optional 
         Interpolation method to use.
+    save_shifts : bool, optional
+        Whether to save the shifts to a file in disk.
     plot : bool, optional
         If True, the shifts are plotted.
 
@@ -1219,6 +1202,9 @@ def cube_recenter_via_speckles(cube_sci, cube_ref=None, alignment_iter=5,
                                           cum_x_shifts_ref[i], imlib=imlib,
                                           interpolation=interpolation)
 
+    if save_shifts:
+        np.savetxt('recent_gauss_shifts.txt',
+                   np.transpose([cum_y_shifts_sci, cum_x_shifts_sci]), fmt='%f')
     if ref_star:
         return (cube_reg_sci, cube_reg_ref, cum_x_shifts_sci, cum_y_shifts_sci,
                 cum_x_shifts_ref, cum_y_shifts_ref)

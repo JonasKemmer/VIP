@@ -22,11 +22,11 @@ except ImportError:
     warnings.warn(msg, ImportWarning)
     no_opencv = True
 import numpy as np
-import pyprind
 from scipy.ndimage import gaussian_filter, median_filter      
 from astropy.convolution import convolve_fft, Gaussian2DKernel
 from astropy.stats import gaussian_fwhm_to_sigma
 from ..exlib import iuwt
+from ..conf import Progressbar
 
 
 def cube_filter_iuwt(cube, coeff=5, rel_coeff=1, full_output=False):
@@ -59,14 +59,12 @@ def cube_filter_iuwt(cube, coeff=5, rel_coeff=1, full_output=False):
     cube_coeff = np.zeros((cube.shape[0], coeff, cube.shape[1], cube.shape[2]))
     n_frames = cube.shape[0]
     
-    msg = 'Decomposing frames with the Isotropic Undecimated Wavelet Transform.'
-    bar = pyprind.ProgBar(n_frames, stream=1, title=msg)
-    for i in range(n_frames):
+    print('Decomposing frames with the Isotropic Undecimated Wavelet Transform')
+    for i in Progressbar(range(n_frames)):
         res = iuwt.iuwt_decomposition(cube[i], coeff, store_smoothed=False)
         cube_coeff[i] = res
         for j in range(rel_coeff):
             cubeout[i] += cube_coeff[i][j] 
-        bar.update()
         
     if full_output:
         return cubeout, cube_coeff
@@ -99,12 +97,9 @@ def cube_filter_highpass(array, mode='laplacian', verbose=True, **kwargs):
     n_frames = array.shape[0]
     array_out = np.zeros_like(array)
     if verbose:
-        msg = 'Applying the high-pass filter on cube frames:'
-        bar = pyprind.ProgBar(n_frames, stream=1, title=msg, bar_char='.')
-    for i in range(n_frames):
+        print('Applying the high-pass filter on cube frames:')
+    for i in Progressbar(range(n_frames), verbose=verbose):
         array_out[i] = frame_filter_highpass(array[i], mode=mode, **kwargs)
-        if verbose:
-            bar.update()
         
     return array_out
     
@@ -122,22 +117,19 @@ def fft(array):
     return fft_array
 
 
-def ifft(array, real=False):
+def ifft(array):
     """ Gets the inverse Fourier transform on the image. This produces an array 
-    of complex numbers whose absolute values correspond to the image in the 
+    of complex numbers whose real values correspond to the image in the 
     original space (decentering).
 
     Notes
     -----
-    In vip.andromeda, the real part of the result of the inverse FT is returned
-    instead of the absolute values. The ``real`` parameter takes that difference
-    into account. Inside VIP, only the ``frame_filter_highpass`` function with
-    ``mode="hanning"`` uses ``real=True``.
+    A real function corresponds to a symmetric function in fourier space. As
+    long as the operations we apply in the fourier space do not break this
+    symmetry, the data returned by ``ifft`` should not containy any imaginary
+    part.
     """
-    if real:
-        new_array = np.fft.ifft2(np.fft.ifftshift(array)).real
-    else:
-        new_array = np.abs(np.fft.ifft2(np.fft.ifftshift(array)))
+    new_array = np.fft.ifft2(np.fft.ifftshift(array)).real
     return new_array
 
 
@@ -322,7 +314,7 @@ def frame_filter_highpass(array, mode, median_size=5, kernel_size=5,
         array_fft[npix//2 - cutoff_inside : npix//2 + cutoff_inside + 1,
                   npix//2 - cutoff_inside : npix//2 + cutoff_inside + 1] *= win
 
-        filtered = ifft(array_fft, real=True)
+        filtered = ifft(array_fft)
         
     else:
         raise TypeError('Mode not recognized.')
@@ -409,13 +401,10 @@ def cube_filter_lowpass(array, mode='gauss', median_size=5, fwhm_size=5,
     n_frames = array.shape[0]
     array_out = np.zeros_like(array)
     if verbose:
-        msg = 'Applying the low-pass filter on cube frames:'
-        bar = pyprind.ProgBar(n_frames, stream=1, title=msg, bar_char='.')
-    for i in range(n_frames):
+        print('Applying the low-pass filter on cube frames:')
+    for i in Progressbar(range(n_frames), verbose=verbose):
         array_out[i] = frame_filter_lowpass(array[i], mode, median_size,
                                             fwhm_size, gauss_mode)
-        if verbose:
-            bar.update()
 
     return array_out
 
