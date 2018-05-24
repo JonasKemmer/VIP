@@ -487,10 +487,10 @@ def mcmc_negfc_sampling(cube, angs, psfn, ncomp, plsc, initial_state, fwhm=4,
     rhat_count = 0
     chain = np.empty([nwalkers, 1, dim])
     isamples = np.empty(0)
-    #pos = initial_state + np.random.normal(0, 1e-1, (nwalkers, 3))
+    # pos = initial_state + np.random.normal(0, 1e-1, (nwalkers, 3))
     pos = np.array([initial_state[0]+np.random.normal(0,1e-01,(nwalkers)),
                     initial_state[1]+np.random.normal(0,1e-01,(nwalkers)),
-                    initial_state[2]+np.random.normal(0,1e-04,(nwalkers))]).T
+                    initial_state[2]+np.random.normal(0,1e-05,(nwalkers))]).T
     nIterations = limit + supp
     rhat = np.zeros(dim)
     stop = np.inf

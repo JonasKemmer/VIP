@@ -527,8 +527,6 @@ def plot_surface(image, center_xy=None, size=15, output=False, title=None,
         x and y for the grid, and the intensity
         
     """
-    if not isinstance(center_xy, tuple):
-        raise ValueError('`center_xy` must be a tuple')
 
     if center_xy is not None:
         cx = int(center_xy[0])
@@ -547,7 +545,7 @@ def plot_surface(image, center_xy=None, size=15, output=False, title=None,
             else: 
                 x = np.outer(np.arange(0,size+1,1), np.ones(size+1))
             y = x.copy().T
-            z = image[cy-size//2:cy+size//2+1,cx-size//2:cx+size//2+1]
+            z = image[int(cy-size//2):int(cy+size//2)+1,int(cx-size//2):int(cx+size//2)+1]
         else:
             size = image.shape[0]
             x = np.outer(np.arange(0, size, 1), np.ones(size))

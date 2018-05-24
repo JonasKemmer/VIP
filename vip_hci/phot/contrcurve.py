@@ -251,7 +251,6 @@ def contrast_curve(cube, angle_list, psf_template, fwhm, pxscale, starphot,
         cont_curve_samp = (sigma * noise_samp_sm) / thruput_interp
     cont_curve_samp[np.where(cont_curve_samp < 0)] = 1
     cont_curve_samp[np.where(cont_curve_samp > 1)] = 1
-
     # calculating the Student corrected contrast
     if student:
         n_res_els = np.floor(rad_samp/fwhm*2*np.pi)
